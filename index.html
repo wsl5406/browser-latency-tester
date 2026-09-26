@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Browser Latency Tester | 本机网络延迟直测</title>
+  <meta name="description" content="A zero-dependency browser-based network latency benchmark tool measuring real HTTP/HTTPS round-trip time directly through local network and proxies.">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #0b1120;
+      color: #f8fafc;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px;
+    }
+    .container {
+      width: 100%;
+      max-width: 800px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 32px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 20px;
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .badge {
+      display: inline-block;
+      background: rgba(56, 189, 248, 0.15);
+      color: #38bdf8;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .subtitle {
+      color: #94a3b8;
+      font-size: 14px;
+      margin-top: 6px;
+      line-height: 1.5;
+    }
+    .github-link {
+      color: #94a3b8;
+      text-decoration: none;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid #334155;
+      padding: 6px 12px;
+      border-radius: 8px;
+      transition: all 0.2s;
+    }
+    .github-link:hover {
+      color: #fff;
+      border-color: #38bdf8;
+      background: rgba(56, 189, 248, 0.1);
+    }
+    .input-group {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    input[type="text"] {
+      flex: 1;
+      background: #0f172a;
+      border: 1px solid #475569;
+      border-radius: 8px;
+      padding: 12px 16px;
+      color: #fff;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input[type="text"]:focus {
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+    }
+    button.btn-primary {
+      background: #0284c7;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 24px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      white-space: nowrap;
+    }
+    button.btn-primary:hover {
+      background: #0369a1;
+    }
+    button.btn-primary:active {
+      transform: scale(0.98);
+    }
+    button.btn-primary:disabled {
+      background: #475569;
+      cursor: not-allowed;
+    }
+    .preset-section {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 24px;
+    }
+    .preset-group {
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .preset-group:last-child {
+      margin-bottom: 0;
+    }
+    .preset-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #94a3b8;
+      width: 170px;
+      flex-shrink: 0;
+    }
+    .preset-btn {
+      background: #1e293b;
+      color: #cbd5e1;
+      border: 1px solid #475569;
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .preset-btn:hover {
+      background: #334155;
+      color: #38bdf8;
+      border-color: #38bdf8;
+    }
+    .preset-btn.highlight {
+      border-color: #f59e0b;
+      color: #fcd34d;
+      background: rgba(245, 158, 11, 0.1);
+    }
+    .preset-btn.highlight:hover {
+      background: rgba(245, 158, 11, 0.2);
+    }
+    .stats-card {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 640px) {
+      .stats-card {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .preset-title {
+        width: 100%;
+      }
+    }
+    .stat-box {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 14px;
+      text-align: center;
+    }
+    .stat-title {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-bottom: 4px;
+    }
+    .stat-val {
+      font-size: 22px;
+      font-weight: 700;
+      color: #f8fafc;
+    }
+    .stat-val.good { color: #4ade80; }
+    .stat-val.medium { color: #facc15; }
+    .stat-val.bad { color: #f87171; }
+    .log-container {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 16px;
+      max-height: 250px;
+      overflow-y: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 13px;
+    }
+    .log-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px solid #1e293b;
+    }
+    .log-item:last-child {
+      border-bottom: none;
+    }
+    .log-seq { color: #64748b; }
+    .log-time { color: #94a3b8; }
+    .log-ms { font-weight: 600; }
+    .comparison-tip {
+      margin-top: 20px;
+      padding: 14px 18px;
+      background: rgba(56, 189, 248, 0.06);
+      border-left: 3px solid #38bdf8;
+      border-radius: 0 8px 8px 0;
+      font-size: 13px;
+      color: #cbd5e1;
+      line-height: 1.7;
+    }
+    .comparison-tip code {
+      background: #0f172a;
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #38bdf8;
+    }
+    footer {
+      margin-top: 30px;
+      text-align: center;
+      font-size: 12px;
+      color: #64748b;
+    }
+    footer a {
+      color: #94a3b8;
+      text-decoration: none;
+    }
+    footer a:hover {
+      color: #38bdf8;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>
+          <span>⚡ Browser Latency Tester</span>
+          <span class="badge">100% Local RTT</span>
+        </h1>
+        <p class="subtitle">
+          Real-time browser-native HTTP/HTTPS round-trip latency test (strictly honoring system proxy/TUN).
+        </p>
+      </div>
+      <a href="https://github.com/wsl5406/browser-latency-tester" target="_blank" class="github-link">
+        GitHub ⭐
+      </a>
+    </header>
+
+    <div class="input-group">
+      <input type="text" id="targetUrl" placeholder="Enter target URL, e.g. https://api.openai.com" value="https://cp.cloudflare.com/generate_204">
+      <button class="btn-primary" id="startBtn" onclick="toggleTest()">Start Test (5 Runs)</button>
+    </div>
+
+    <div class="preset-section">
+      <!-- Fast Empty Probes -->
+      <div class="preset-group">
+        <span class="preset-title">⚡ Fast 204 Empty Probes:</span>
+        <button class="preset-btn highlight" onclick="setTarget('https://cp.cloudflare.com/generate_204')">CF 204 (Clash Core Ping)</button>
+        <button class="preset-btn highlight" onclick="setTarget('https://www.gstatic.com/generate_204')">Google 204 Probe</button>
+      </div>
+
+      <!-- APIs -->
+      <div class="preset-group">
+        <span class="preset-title">🚀 Global AI & Tech APIs:</span>
+        <button class="preset-btn" onclick="setTarget('https://api.openai.com')">OpenAI API</button>
+        <button class="preset-btn" onclick="setTarget('https://api.anthropic.com')">Claude API</button>
+        <button class="preset-btn" onclick="setTarget('https://generativelanguage.googleapis.com')">Gemini API</button>
+        <button class="preset-btn" onclick="setTarget('https://api.github.com')">GitHub API</button>
+      </div>
+
+      <!-- Web Portals -->
+      <div class="preset-group">
+        <span class="preset-title">🌐 Full Web Pages:</span>
+        <button class="preset-btn" onclick="setTarget('https://www.google.com')">Google Search Homepage</button>
+        <button class="preset-btn" onclick="setTarget('https://www.cloudflare.com')">Cloudflare Portal</button>
+        <button class="preset-btn" onclick="setTarget('https://www.baidu.com')">Baidu</button>
+      </div>
+    </div>
+
+    <div class="stats-card">
+      <div class="stat-box">
+        <div class="stat-title">Current / 当前</div>
+        <div class="stat-val" id="currMs">- ms</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-title">Min / 最低</div>
+        <div class="stat-val" id="minMs">- ms</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-title">Average / 平均</div>
+        <div class="stat-val" id="avgMs">- ms</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-title">Max / 最高</div>
+        <div class="stat-val" id="maxMs">- ms</div>
+      </div>
+    </div>
+
+    <div class="log-container" id="logBox">
+      <div style="color: #64748b; text-align: center; padding: 20px 0;">Click 'Start Test' or choose a quick preset above to benchmark latency.</div>
+    </div>
+
+    <div class="comparison-tip">
+      💡 <strong>How it works:</strong><br>
+      • <strong>Fast 204 Empty Probes</strong>: Returns a 0-byte payload with zero backend computing time, reflecting pure network transport RTT (same mechanism used by Clash/Mihomo node latency test).<br>
+      • <strong>Full Web Pages</strong>: Measures end-to-end user-perceived latency, including TLS handshake, DNS resolution, and backend server processing time (TTFB).
+    </div>
+
+    <footer>
+      Open source on GitHub: <a href="https://github.com/wsl5406/browser-latency-tester" target="_blank">wsl5406/browser-latency-tester</a> · Released under MIT License
+    </footer>
+  </div>
+
+  <script>
+    let testing = false;
+    let results = [];
+
+    function setTarget(url) {
+      document.getElementById('targetUrl').value = url;
+      startTest();
+    }
+
+    function toggleTest() {
+      if (testing) {
+        testing = false;
+        document.getElementById('startBtn').innerText = 'Start Test (5 Runs)';
+        document.getElementById('startBtn').disabled = false;
+      } else {
+        startTest();
+      }
+    }
+
+    async function probeOnce(url) {
+      let target;
+      try {
+        target = new URL(url.startsWith('http') ? url : 'https://' + url);
+      } catch (e) {
+        throw new Error('Invalid URL format');
+      }
+      target.searchParams.set('_t', Date.now());
+
+      const t0 = performance.now();
+      try {
+        await fetch(target.toString(), {
+          method: 'GET',
+          mode: 'no-cors',
+          cache: 'no-store'
+        });
+        return Math.round(performance.now() - t0);
+      } catch (e) {
+        // Fallback probe
+        const t1 = performance.now();
+        await fetch(target.origin + '/?_t=' + Date.now(), {
+          method: 'GET',
+          mode: 'no-cors',
+          cache: 'no-store'
+        });
+        return Math.round(performance.now() - t1);
+      }
+    }
+
+    async function startTest() {
+      const urlInput = document.getElementById('targetUrl').value.trim();
+      if (!urlInput) {
+        alert('Please enter a target URL!');
+        return;
+      }
+
+      testing = true;
+      results = [];
+      const btn = document.getElementById('startBtn');
+      btn.innerText = 'Testing...';
+      btn.disabled = true;
+
+      const logBox = document.getElementById('logBox');
+      logBox.innerHTML = '';
+
+      document.getElementById('currMs').innerText = '- ms';
+      document.getElementById('minMs').innerText = '- ms';
+      document.getElementById('avgMs').innerText = '- ms';
+      document.getElementById('maxMs').innerText = '- ms';
+
+      const rounds = 5;
+
+      for (let i = 1; i <= rounds; i++) {
+        if (!testing) break;
+
+        const timeStr = new Date().toLocaleTimeString();
+        try {
+          const ms = await probeOnce(urlInput);
+          results.push(ms);
+
+          let colorClass = 'good';
+          if (ms > 300) colorClass = 'bad';
+          else if (ms > 150) colorClass = 'medium';
+
+          document.getElementById('currMs').className = 'stat-val ' + colorClass;
+          document.getElementById('currMs').innerText = ms + ' ms';
+
+          const minVal = Math.min(...results);
+          const maxVal = Math.max(...results);
+          const avgVal = Math.round(results.reduce((a, b) => a + b, 0) / results.length);
+
+          document.getElementById('minMs').innerText = minVal + ' ms';
+          document.getElementById('maxMs').innerText = maxVal + ' ms';
+          document.getElementById('avgMs').innerText = avgVal + ' ms';
+
+          const item = document.createElement('div');
+          item.className = 'log-item';
+          item.innerHTML = `
+            <span class="log-seq">Round ${i}</span>
+            <span class="log-time">${timeStr}</span>
+            <span class="log-ms ${colorClass}">${ms} ms</span>
+          `;
+          logBox.appendChild(item);
+          logBox.scrollTop = logBox.scrollHeight;
+        } catch (err) {
+          const item = document.createElement('div');
+          item.className = 'log-item';
+          item.innerHTML = `
+            <span class="log-seq">Round ${i}</span>
+            <span class="log-time">${timeStr}</span>
+            <span class="log-ms bad">Timeout / Error</span>
+          `;
+          logBox.appendChild(item);
+        }
+
+        if (i < rounds) {
+          await new Promise(r => setTimeout(r, 450));
+        }
+      }
+
+      testing = false;
+      btn.innerText = 'Start Test (5 Runs)';
+      btn.disabled = false;
+    }
+  </script>
+</body>
+</html>
