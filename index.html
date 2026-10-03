@@ -334,8 +334,11 @@
   </div>
 
   <script>
+    const PROBE_TIMEOUT_MS = 8000;
     let testing = false;
     let results = [];
+    let runId = 0;
+    let currentAbort = null;
 
     function setTarget(url) {
       document.getElementById('targetUrl').value = url;
@@ -344,15 +347,20 @@
 
     function toggleTest() {
       if (testing) {
-        testing = false;
-        document.getElementById('startBtn').innerText = 'Start Test (5 Runs)';
-        document.getElementById('startBtn').disabled = false;
+        stopTest();
       } else {
         startTest();
       }
     }
 
-    async function probeOnce(url) {
+    function stopTest() {
+      testing = false;
+      if (currentAbort) currentAbort.abort();
+      const btn = document.getElementById('startBtn');
+      btn.innerText = 'Start Test (5 Runs)';
+    }
+
+    async function probeOnce(url, signal) {
       let target;
       try {
         target = new URL(url.startsWith('http') ? url : 'https://' + url);
@@ -366,16 +374,19 @@
         await fetch(target.toString(), {
           method: 'GET',
           mode: 'no-cors',
-          cache: 'no-store'
+          cache: 'no-store',
+          signal
         });
         return Math.round(performance.now() - t0);
       } catch (e) {
+        if (signal && signal.aborted) throw e;
         // Fallback probe
         const t1 = performance.now();
         await fetch(target.origin + '/?_t=' + Date.now(), {
           method: 'GET',
           mode: 'no-cors',
-          cache: 'no-store'
+          cache: 'no-store',
+          signal
         });
         return Math.round(performance.now() - t1);
       }
@@ -388,11 +399,13 @@
         return;
       }
 
+      if (testing) stopTest();
+
+      const myRun = ++runId;
       testing = true;
       results = [];
       const btn = document.getElementById('startBtn');
-      btn.innerText = 'Testing...';
-      btn.disabled = true;
+      btn.innerText = 'Stop';
 
       const logBox = document.getElementById('logBox');
       logBox.innerHTML = '';
@@ -405,11 +418,32 @@
       const rounds = 5;
 
       for (let i = 1; i <= rounds; i++) {
-        if (!testing) break;
+        if (!testing || myRun !== runId) break;
+
+        const controller = new AbortController();
+        currentAbort = controller;
+        const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
 
         const timeStr = new Date().toLocaleTimeString();
+        let ms = null;
         try {
-          const ms = await probeOnce(urlInput);
+          ms = await probeOnce(urlInput, controller.signal);
+        } catch (err) {
+          if (!testing || myRun !== runId) break;
+          const item = document.createElement('div');
+          item.className = 'log-item';
+          item.innerHTML = `
+            <span class="log-seq">Round ${i}</span>
+            <span class="log-time">${timeStr}</span>
+            <span class="log-ms bad">Timeout / Error</span>
+          `;
+          logBox.appendChild(item);
+        } finally {
+          clearTimeout(timer);
+          if (currentAbort === controller) currentAbort = null;
+        }
+
+        if (ms !== null) {
           results.push(ms);
 
           let colorClass = 'good';
@@ -436,15 +470,6 @@
           `;
           logBox.appendChild(item);
           logBox.scrollTop = logBox.scrollHeight;
-        } catch (err) {
-          const item = document.createElement('div');
-          item.className = 'log-item';
-          item.innerHTML = `
-            <span class="log-seq">Round ${i}</span>
-            <span class="log-time">${timeStr}</span>
-            <span class="log-ms bad">Timeout / Error</span>
-          `;
-          logBox.appendChild(item);
         }
 
         if (i < rounds) {
@@ -452,9 +477,10 @@
         }
       }
 
+      if (myRun !== runId) return;
+
       testing = false;
       btn.innerText = 'Start Test (5 Runs)';
-      btn.disabled = false;
     }
   </script>
 </body>
